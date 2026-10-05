@@ -1,0 +1,17 @@
+# Never commit credentials
+ssh.txt
+*.creds
+credentials*
+
+# Local Claude Code settings — permission rules can capture literal secrets
+.claude/
+
+# Windows Explorer metadata (this workspace receives files from Windows)
+*:Zone.Identifier
+
+# Captured output
+*.transcript
+branch-health-*.txt
+
+# Pre-scrub originals (contain real appliance identifiers)
+*.orig
