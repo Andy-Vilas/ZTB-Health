@@ -260,3 +260,11 @@ command per connection — `;` does not chain.
 
 This script sidesteps all of that by piping a command list into a single
 interactive session, which is why it can report CPU, memory and load at all.
+
+## License
+
+[MIT](LICENSE) — © 2026 Andy Brown.
+
+The licence governs reuse of this code. It is separate from, and does not
+imply, any support relationship: as stated above, this is not a Zscaler
+product and Zscaler does not support it.
