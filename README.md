@@ -82,8 +82,8 @@ are used only if present.
 | Platform | Interactive | Unattended |
 |---|---|---|
 | Linux / WSL | yes | yes |
-| macOS | yes | needs `sshpass` or SSH keys |
-| Windows (Git Bash) | yes | needs SSH keys |
+| macOS | yes | needs `sshpass` |
+| Windows (Git Bash) | yes | not supported |
 
 Tested against ZTB OS **8.1.2 (b226)** and **8.1.2-P1 (b323)**.
 
@@ -96,16 +96,15 @@ command list arrives on stdin.
 
 **Unattended.** In preference order:
 
-1. **SSH keys** — nothing to store, so the best option *where it is
-   available*. Be aware there is **no `zcli` command that installs one**: the
-   `config` tree covers DNS, WAN, bonding and web-proxy only, and because
-   `zcli` is not a shell you cannot write `authorized_keys` yourself. The
-   server side does support it — the `admin` account offers `publickey`
-   alongside `password` — so provisioning has to come from your management
-   portal or platform team. Confirm it is actually available before designing
-   an unattended workflow around it.
-2. **`ZTB_PASSWORD`** environment variable.
-3. **`-c <file>`** with `user <name>` / `password <secret>` lines.
+1. **`ZTB_PASSWORD`** environment variable.
+2. **`-c <file>`** with `user <name>` / `password <secret>` lines.
+
+**SSH keys are not an option.** The appliance is a locked-down device: `zcli`
+is a restricted command set rather than a shell, and nothing in it installs
+an authorized key. Unattended runs therefore always involve a password, which
+is why they need `sshpass` on macOS and are unsupported on Windows Git Bash —
+neither `sshpass` nor `setsid` is available there, so the password cannot be
+handed to `ssh` without a terminal.
 
 A credentials file is **never** read implicitly — you must name it with
 `-c`. Keep it outside the repository; `.gitignore` covers the common names

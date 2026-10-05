@@ -41,11 +41,13 @@
 #   stdin. Nothing is written to disk and no helper is needed, which is also
 #   what makes this path work on macOS.
 #
-#   Unattended runs (no terminal) have no such luxury and need one of:
-#     - SSH key authentication  (recommended; nothing to store)
+#   Unattended runs (no terminal) have no such luxury. Key auth is not an
+#   option — the appliance is locked down and zcli has no way to install an
+#   authorized key — so a password must be delivered by one of:
 #     - sshpass                 (if installed)
 #     - setsid + SSH_ASKPASS    (Linux, OpenSSH 8.4+; password written to a
 #                                0600 file in a 0700 dir, removed on exit)
+#   Neither exists on Windows Git Bash, so unattended runs are Linux/macOS.
 #
 # REQUIREMENTS
 #   bash 3.2+, OpenSSH, awk, sed, grep. GNU coreutils NOT required.
@@ -83,7 +85,7 @@ With no arguments it asks for the address, username and password.
                           or set \$ZTB_HOST)
   -u, --user USER         login user               (prompted, default: admin)
   -c, --credentials FILE  read 'user X' / 'password Y' from FILE
-                          (unattended use only — prefer the prompt or SSH keys)
+                          (unattended use only — prefer the interactive prompt)
   -t, --timeout SECS      session timeout          (default: $SESSION_TIMEOUT)
       --cert-days N       warn on certs expiring within N days (default: $CERT_WARN_DAYS)
       --no-tunnel-stats   skip the per-tunnel byte-counter sampling and the
@@ -103,8 +105,8 @@ With no arguments it asks for the address, username and password.
 
 Authentication:
   With a terminal, ssh prompts for the password directly and nothing is
-  stored. For unattended runs use SSH keys if your platform team can
-  provision them, otherwise \$ZTB_PASSWORD or --credentials.
+  stored. Unattended runs need \$ZTB_PASSWORD or --credentials; SSH keys are
+  not available on this appliance.
 
 Examples:
   $0                                 # prompts for everything
@@ -310,7 +312,7 @@ unset _c
 # A credentials file is NEVER picked up implicitly — it must be named with
 # -c. An earlier version defaulted to ./ssh.txt, which quietly turns any
 # copy of this directory into a credential leak.
-AUTH_MODE=""          # tty | password | key
+AUTH_MODE=""          # tty | password | none
 if [ -n "$CRED_FILE" ]; then
     if [ ! -r "$CRED_FILE" ]; then
         echo "Cannot read credentials file: $CRED_FILE" >&2; exit 64
@@ -340,8 +342,11 @@ elif [ -t 0 ]; then
     # carries the command list. Nothing touches disk. Works on macOS.
     AUTH_MODE="tty"
 else
-    # No terminal and no password: only key auth can work unattended.
-    AUTH_MODE="key"
+    # No terminal and no password. There is nothing left to try: the
+    # appliance offers no usable key auth, so this run will fail. ssh is
+    # still invoked so the failure comes from the server with a real
+    # message rather than from a guess here.
+    AUTH_MODE="none"
 fi
 
 # --------------------------------------------------------------- workspace ---
@@ -391,8 +396,8 @@ if [ "$AUTH_MODE" = "password" ]; then
     else
         echo "A password was supplied but this system has neither sshpass nor setsid," >&2
         echo "so it cannot be delivered non-interactively." >&2
-        echo "Run from a terminal (the password will be prompted for), install sshpass," >&2
-        echo "or use SSH key authentication." >&2
+        echo "Run from a terminal (the password will be prompted for), or install" >&2
+        echo "sshpass. SSH keys are not available on this appliance." >&2
         exit 3
     fi
 fi
@@ -428,7 +433,7 @@ run_session() {
         -o ConnectTimeout="$CONNECT_TIMEOUT" \
         -o LogLevel=ERROR
     case "$AUTH_MODE" in
-        key) set -- "$@" -o BatchMode=yes -o PasswordAuthentication=no ;;
+        none) set -- "$@" -o BatchMode=yes -o PasswordAuthentication=no ;;
         *)   set -- "$@" -o NumberOfPasswordPrompts=1 ;;
     esac
 
@@ -460,7 +465,7 @@ run_session() {
                 -o PubkeyAuthentication=no "$USER_NAME@$HOST" \
                 < "$script" 2>&1 | scrub > "$WORK/transcript.txt"
             ;;
-        key)
+        none)
             $TO ssh "$@" "$USER_NAME@$HOST" < "$script" 2>&1 | scrub > "$WORK/transcript.txt"
             ;;
     esac
@@ -546,9 +551,9 @@ diagnose_failure() {
     if [ ! -s "$t" ]; then
         echo "No response from $HOST (ssh rc=$rc) — connection timed out." >&2
     elif grep -qi 'permission denied\|authentication fail' "$t"; then
-        if [ "$AUTH_MODE" = "key" ]; then
-            echo "SSH key authentication was rejected by $HOST, and there is no" >&2
-            echo "terminal to prompt for a password on." >&2
+        if [ "$AUTH_MODE" = "none" ]; then
+            echo "No password was supplied and there is no terminal to prompt on," >&2
+            echo "so $HOST had nothing to authenticate with." >&2
             echo "Supply one via \$ZTB_PASSWORD or --credentials, or run from a terminal." >&2
         else
             echo "Authentication failed for $USER_NAME@$HOST — check the password." >&2
