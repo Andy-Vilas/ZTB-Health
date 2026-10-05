@@ -96,9 +96,14 @@ command list arrives on stdin.
 
 **Unattended.** In preference order:
 
-1. **SSH keys** — nothing to store. Ask your platform team whether keys can
-   be provisioned for the appliance `admin` account; it offers both
-   `publickey` and `password`.
+1. **SSH keys** — nothing to store, so the best option *where it is
+   available*. Be aware there is **no `zcli` command that installs one**: the
+   `config` tree covers DNS, WAN, bonding and web-proxy only, and because
+   `zcli` is not a shell you cannot write `authorized_keys` yourself. The
+   server side does support it — the `admin` account offers `publickey`
+   alongside `password` — so provisioning has to come from your management
+   portal or platform team. Confirm it is actually available before designing
+   an unattended workflow around it.
 2. **`ZTB_PASSWORD`** environment variable.
 3. **`-c <file>`** with `user <name>` / `password <secret>` lines.
 
